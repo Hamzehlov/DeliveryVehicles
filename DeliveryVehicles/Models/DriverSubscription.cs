@@ -4,30 +4,27 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace DeliveryVehicles.Models5;
+namespace DeliveryVehicles.Models;
 
-[Table("offers")]
-public partial class Offer
+[Table("driver_subscriptions")]
+public partial class DriverSubscription
 {
     [Key]
-    [Column("offer_id")]
-    public int OfferId { get; set; }
+    [Column("subscription_id")]
+    public int SubscriptionId { get; set; }
 
-    [Column("title")]
-    [StringLength(200)]
-    public string? Title { get; set; }
+    [Column("driver_id")]
+    public int DriverId { get; set; }
 
-    [Column("description")]
-    public string? Description { get; set; }
-
-    [Column("discount_percentage", TypeName = "decimal(5, 2)")]
-    public decimal? DiscountPercentage { get; set; }
+    [Column("type")]
+    [StringLength(50)]
+    public string? Type { get; set; }
 
     [Column("start_date", TypeName = "datetime")]
-    public DateTime? StartDate { get; set; }
+    public DateTime StartDate { get; set; }
 
     [Column("end_date", TypeName = "datetime")]
-    public DateTime? EndDate { get; set; }
+    public DateTime EndDate { get; set; }
 
     [Column("active")]
     public bool? Active { get; set; }
@@ -37,4 +34,8 @@ public partial class Offer
 
     [Column("updated_at", TypeName = "datetime")]
     public DateTime? UpdatedAt { get; set; }
+
+    [ForeignKey("DriverId")]
+    [InverseProperty("DriverSubscriptions")]
+    public virtual DriverDetail Driver { get; set; } = null!;
 }

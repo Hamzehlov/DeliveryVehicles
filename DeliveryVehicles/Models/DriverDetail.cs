@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace DeliveryVehicles.Models5;
+namespace DeliveryVehicles.Models;
 
 [Table("driver_details")]
 public partial class DriverDetail
@@ -79,5 +79,5 @@ public partial class DriverDetail
 
     [ForeignKey("UserId")]
     [InverseProperty("DriverDetails")]
-    public virtual AspNetUser User { get; set; } = null!;
+    public virtual ApplicationUser User { get; set; } = null!;
 }

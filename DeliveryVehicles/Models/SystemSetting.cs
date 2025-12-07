@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace DeliveryVehicles.Models5;
+namespace DeliveryVehicles.Models;
 
 [Table("system_settings")]
 [Index("KeyName", Name = "UQ__system_s__846621D30F8973A1", IsUnique = true)]

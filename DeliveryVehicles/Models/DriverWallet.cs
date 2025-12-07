@@ -4,28 +4,25 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace DeliveryVehicles.Models5;
+namespace DeliveryVehicles.Models;
 
-[Table("driver_locations")]
-public partial class DriverLocation
+[Table("driver_wallets")]
+public partial class DriverWallet
 {
     [Key]
-    [Column("location_id")]
-    public long LocationId { get; set; }
-
     [Column("driver_id")]
     public int DriverId { get; set; }
 
-    [Column("lat", TypeName = "decimal(10, 7)")]
-    public decimal Lat { get; set; }
+    [Column("balance", TypeName = "decimal(12, 2)")]
+    public decimal? Balance { get; set; }
 
-    [Column("lng", TypeName = "decimal(10, 7)")]
-    public decimal Lng { get; set; }
+    [Column("reserved", TypeName = "decimal(12, 2)")]
+    public decimal? Reserved { get; set; }
 
     [Column("updated_at", TypeName = "datetime")]
     public DateTime? UpdatedAt { get; set; }
 
     [ForeignKey("DriverId")]
-    [InverseProperty("DriverLocations")]
+    [InverseProperty("DriverWallet")]
     public virtual DriverDetail Driver { get; set; } = null!;
 }

@@ -4,27 +4,26 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace DeliveryVehicles.Models5;
+namespace DeliveryVehicles.Models;
 
-[Table("driver_subscriptions")]
-public partial class DriverSubscription
+[Table("driver_positions")]
+public partial class DriverPosition
 {
     [Key]
-    [Column("subscription_id")]
-    public int SubscriptionId { get; set; }
+    [Column("pos_id")]
+    public int PosId { get; set; }
+
+    [Column("line_id")]
+    public int LineId { get; set; }
 
     [Column("driver_id")]
     public int DriverId { get; set; }
 
-    [Column("type")]
-    [StringLength(50)]
-    public string? Type { get; set; }
+    [Column("position_index")]
+    public int PositionIndex { get; set; }
 
-    [Column("start_date", TypeName = "datetime")]
-    public DateTime StartDate { get; set; }
-
-    [Column("end_date", TypeName = "datetime")]
-    public DateTime EndDate { get; set; }
+    [Column("skip_count")]
+    public int? SkipCount { get; set; }
 
     [Column("active")]
     public bool? Active { get; set; }
@@ -36,6 +35,10 @@ public partial class DriverSubscription
     public DateTime? UpdatedAt { get; set; }
 
     [ForeignKey("DriverId")]
-    [InverseProperty("DriverSubscriptions")]
+    [InverseProperty("DriverPositions")]
     public virtual DriverDetail Driver { get; set; } = null!;
+
+    [ForeignKey("LineId")]
+    [InverseProperty("DriverPositions")]
+    public virtual Line Line { get; set; } = null!;
 }

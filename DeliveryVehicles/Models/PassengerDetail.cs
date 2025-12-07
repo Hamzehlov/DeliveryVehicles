@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace DeliveryVehicles.Models5;
+namespace DeliveryVehicles.Models;
 
 [Table("passenger_details")]
 public partial class PassengerDetail
@@ -34,5 +34,5 @@ public partial class PassengerDetail
 
     [ForeignKey("UserId")]
     [InverseProperty("PassengerDetails")]
-    public virtual AspNetUser User { get; set; } = null!;
+    public virtual ApplicationUser User { get; set; } = null!;
 }

@@ -16,6 +16,9 @@ namespace DeliveryVehicles.Models
         [MaxLength(20)]
         public string? Phone { get; set; }
 
+        public DriverDetail? DriverDetails { get; set; }
+        public virtual PassengerDetail? PassengerDetails { get; set; }
+
         public DateTime? EmailVerifiedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
