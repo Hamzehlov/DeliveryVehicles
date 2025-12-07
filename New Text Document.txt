@@ -1,0 +1,360 @@
+-- ========================================
+-- قاعدة بيانات: transport_db كاملة
+-- ========================================
+CREATE DATABASE IF NOT EXISTS transport_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE transport_db;
+
+-- =============================
+-- 0) Codes Table (الثوابت والحالات)
+-- =============================
+CREATE TABLE codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code_name_ar VARCHAR(100) NOT NULL,
+    code_name_en VARCHAR(100) NOT NULL,
+    code_value VARCHAR(50) NOT NULL,
+    parent_id INT NULL,
+    category VARCHAR(50) NOT NULL,       -- مثال: "TripStatus", "RequestStatus", "TransactionType"
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_codes_parent FOREIGN KEY (parent_id) REFERENCES codes(id)
+) ENGINE=InnoDB;
+
+-- =============================
+-- 1) ASP.NET Core Identity tables
+-- (تُنشأ عادةً بواسطة Identity migrations)
+-- =============================
+-- AspNetUsers
+-- AspNetRoles
+-- AspNetUserRoles
+-- AspNetUserClaims
+-- AspNetUserLogins
+-- AspNetUserTokens
+
+-- =============================
+-- 2) DriverDetails (معلومات السائق)
+-- =============================
+CREATE TABLE driver_details (
+    driver_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id NVARCHAR(450) NOT NULL,      -- ربط مع AspNetUsers.Id
+    vehicle_type VARCHAR(100),
+    plate_number VARCHAR(50),
+    photo_url VARCHAR(300),
+    id_image_url VARCHAR(300),
+    status_id INT NOT NULL,               -- FK لـ codes: DriverStatus
+    current_line_id INT NULL,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_driver_user FOREIGN KEY (user_id) REFERENCES AspNetUsers(Id),
+    CONSTRAINT fk_driver_status FOREIGN KEY (status_id) REFERENCES codes(id),
+    CONSTRAINT fk_driver_line FOREIGN KEY (current_line_id) REFERENCES lines(line_id)
+) ENGINE=InnoDB;
+
+-- =============================
+-- 3) PassengerDetails (معلومات الركاب)
+-- =============================
+CREATE TABLE passenger_details (
+    passenger_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id NVARCHAR(450) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_passenger_user FOREIGN KEY (user_id) REFERENCES AspNetUsers(Id)
+) ENGINE=InnoDB;
+
+-- =============================
+-- 4) Lines (Routes)
+-- =============================
+CREATE TABLE lines (
+    line_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    from_area VARCHAR(150),
+    to_area VARCHAR(150),
+    seats_per_vehicle INT DEFAULT 4,
+    default_price DECIMAL(10,2) DEFAULT 0.00,
+    active BOOLEAN DEFAULT TRUE,
+    estimated_duration_minutes INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- =============================
+-- 5) DriverPositions
+-- =============================
+CREATE TABLE driver_positions (
+    pos_id INT AUTO_INCREMENT PRIMARY KEY,
+    line_id INT NOT NULL,
+    driver_id INT NOT NULL,
+    position_index INT NOT NULL,
+    skip_count INT DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY ux_line_driver (line_id, driver_id),
+    CONSTRAINT fk_pos_line FOREIGN KEY (line_id) REFERENCES lines(line_id),
+    CONSTRAINT fk_pos_driver FOREIGN KEY (driver_id) REFERENCES driver_details(driver_id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_driver_positions_line_pos ON driver_positions(line_id, position_index);
+
+-- =============================
+-- 6) PassengerRequests
+-- =============================
+CREATE TABLE passenger_requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    passenger_id INT NOT NULL,
+    line_id INT NOT NULL,
+    pickup_lat DECIMAL(10,7) NULL,
+    pickup_lng DECIMAL(10,7) NULL,
+    pickup_address VARCHAR(300) NULL,
+    dropoff_lat DECIMAL(10,7) NULL,
+    dropoff_lng DECIMAL(10,7) NULL,
+    dropoff_address VARCHAR(300) NULL,
+    seats_requested INT DEFAULT 1,
+    status_id INT NOT NULL,               -- FK لـ codes: RequestStatus
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_req_passenger FOREIGN KEY (passenger_id) REFERENCES passenger_details(passenger_id),
+    CONSTRAINT fk_req_line FOREIGN KEY (line_id) REFERENCES lines(line_id),
+    CONSTRAINT fk_req_status FOREIGN KEY (status_id) REFERENCES codes(id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_requests_line_status ON passenger_requests(line_id, status_id);
+
+-- =============================
+-- 7) Queues
+-- =============================
+CREATE TABLE queues (
+    queue_id INT AUTO_INCREMENT PRIMARY KEY,
+    line_id INT NOT NULL,
+    seats_needed INT NOT NULL,
+    seats_collected INT DEFAULT 0,
+    status_id INT NOT NULL,               -- FK لـ codes: QueueStatus
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_queue_line FOREIGN KEY (line_id) REFERENCES lines(line_id),
+    CONSTRAINT fk_queue_status FOREIGN KEY (status_id) REFERENCES codes(id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_queues_line_status ON queues(line_id, status_id);
+
+-- =============================
+-- 8) QueueItems
+-- =============================
+CREATE TABLE queue_items (
+    queue_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    queue_id INT NOT NULL,
+    request_id INT NOT NULL,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_qi_queue FOREIGN KEY (queue_id) REFERENCES queues(queue_id),
+    CONSTRAINT fk_qi_request FOREIGN KEY (request_id) REFERENCES passenger_requests(request_id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_qi_queue ON queue_items(queue_id);
+
+-- =============================
+-- 9) Trips
+-- =============================
+CREATE TABLE trips (
+    trip_id INT AUTO_INCREMENT PRIMARY KEY,
+    driver_id INT NOT NULL,
+    queue_id INT NULL,
+    start_time DATETIME NULL,
+    end_time DATETIME NULL,
+    status_id INT NOT NULL,               -- FK لـ codes: TripStatus
+    total_fare DECIMAL(10,2) DEFAULT 0.00,
+    commission_amount DECIMAL(10,2) DEFAULT 0.00,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_trip_driver FOREIGN KEY (driver_id) REFERENCES driver_details(driver_id),
+    CONSTRAINT fk_trip_queue FOREIGN KEY (queue_id) REFERENCES queues(queue_id),
+    CONSTRAINT fk_trip_status FOREIGN KEY (status_id) REFERENCES codes(id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_trips_driver_status ON trips(driver_id, status_id);
+
+-- =============================
+-- 10) TripPassengers
+-- =============================
+CREATE TABLE trip_passengers (
+    trip_passenger_id INT AUTO_INCREMENT PRIMARY KEY,
+    trip_id INT NOT NULL,
+    request_id INT NOT NULL,
+    seats_assigned INT DEFAULT 1,
+    pickup_lat DECIMAL(10,7) NULL,
+    pickup_lng DECIMAL(10,7) NULL,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_tp_trip FOREIGN KEY (trip_id) REFERENCES trips(trip_id),
+    CONSTRAINT fk_tp_request FOREIGN KEY (request_id) REFERENCES passenger_requests(request_id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_tp_trip ON trip_passengers(trip_id);
+
+-- =============================
+-- 11) Transactions
+-- =============================
+CREATE TABLE transactions (
+    transaction_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    driver_id INT NULL,
+    passenger_id INT NULL,
+    type_id INT NOT NULL,                  -- FK لـ codes: TransactionType
+    amount DECIMAL(10,2) NOT NULL,
+    balance_after DECIMAL(10,2) NULL,
+    reference VARCHAR(255) NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_trans_driver FOREIGN KEY (driver_id) REFERENCES driver_details(driver_id),
+    CONSTRAINT fk_trans_passenger FOREIGN KEY (passenger_id) REFERENCES passenger_details(passenger_id),
+    CONSTRAINT fk_trans_type FOREIGN KEY (type_id) REFERENCES codes(id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_transactions_driver_created ON transactions(driver_id, created_at);
+
+-- =============================
+-- 12) DriverWallets
+-- =============================
+CREATE TABLE driver_wallets (
+    driver_id INT PRIMARY KEY,
+    balance DECIMAL(12,2) DEFAULT 0.00,
+    reserved DECIMAL(12,2) DEFAULT 0.00,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_wallet_driver FOREIGN KEY (driver_id) REFERENCES driver_details(driver_id)
+) ENGINE=InnoDB;
+
+-- =============================
+-- 13) Ratings
+-- =============================
+CREATE TABLE ratings (
+    rating_id INT AUTO_INCREMENT PRIMARY KEY,
+    trip_id INT NOT NULL,
+    passenger_id INT NOT NULL,
+    driver_id INT NOT NULL,
+    rating TINYINT NOT NULL,
+    comment VARCHAR(500),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_rating_trip FOREIGN KEY (trip_id) REFERENCES trips(trip_id),
+    CONSTRAINT fk_rating_passenger FOREIGN KEY (passenger_id) REFERENCES passenger_details(passenger_id),
+    CONSTRAINT fk_rating_driver FOREIGN KEY (driver_id) REFERENCES driver_details(driver_id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_ratings_driver ON ratings(driver_id);
+
+-- =============================
+-- 14) Complaints
+-- =============================
+CREATE TABLE complaints (
+    complaint_id INT AUTO_INCREMENT PRIMARY KEY,
+    trip_id INT NULL,
+    from_user_type ENUM('driver','passenger','admin') NOT NULL,
+    from_user_id INT NOT NULL,
+    to_user_type ENUM('driver','passenger','admin','system') DEFAULT 'system',
+    to_user_id INT NULL,
+    title VARCHAR(200),
+    description TEXT,
+    status_id INT NOT NULL,               -- FK لـ codes: ComplaintStatus
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_compl_trip FOREIGN KEY (trip_id) REFERENCES trips(trip_id),
+    CONSTRAINT fk_compl_status FOREIGN KEY (status_id) REFERENCES codes(id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_compl_status ON complaints(status_id);
+
+-- =============================
+-- 15) Notifications
+-- =============================
+CREATE TABLE notifications (
+    notification_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_type ENUM('driver','passenger','admin') NOT NULL,
+    user_id INT NOT NULL,
+    title VARCHAR(200),
+    body TEXT,
+    is_sent BOOLEAN DEFAULT FALSE,
+    sent_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_notif_user_fk CHECK (user_type IN ('driver','passenger','admin'))
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_notifications_user ON notifications(user_type, user_id);
+
+-- =============================
+-- 16) SystemSettings
+-- =============================
+CREATE TABLE system_settings (
+    setting_id INT AUTO_INCREMENT PRIMARY KEY,
+    key_name VARCHAR(100) NOT NULL UNIQUE,  -- مثال: "CommissionRate", "MinBalance", "AutoRejectSeconds"
+    value VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- =============================
+-- 17) DriverLocations
+-- =============================
+CREATE TABLE driver_locations (
+    location_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    driver_id INT NOT NULL,
+    lat DECIMAL(10,7) NOT NULL,
+    lng DECIMAL(10,7) NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_driver_location FOREIGN KEY (driver_id) REFERENCES driver_details(driver_id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_driver_locations_driver ON driver_locations(driver_id);
+
+-- =============================
+-- 18) Offers (future)
+-- =============================
+CREATE TABLE offers (
+    offer_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200),
+    description TEXT,
+    discount_percentage DECIMAL(5,2) DEFAULT 0.00,
+    start_date DATETIME,
+    end_date DATETIME,
+    active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- =============================
+-- 19) DriverSubscriptions (future)
+-- =============================
+CREATE TABLE driver_subscriptions (
+    subscription_id INT AUTO_INCREMENT PRIMARY KEY,
+    driver_id INT NOT NULL,
+    type VARCHAR(50),            -- مثال: "Monthly", "Yearly"
+    start_date DATETIME NOT NULL,
+    end_date DATETIME NOT NULL,
+    active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sub_driver FOREIGN KEY (driver_id) REFERENCES driver_details(driver_id)
+) ENGINE=InnoDB;
+
+
+
+
+codes                  -- تخزين الثوابت والحالات مثل حالة الرحلة، حالة الطلب، نوع المعاملة، حالة السائق
+AspNetUsers            -- تخزين بيانات المستخدمين (سائقين، ركاب، إداريين)
+AspNetRoles            -- تخزين أدوار المستخدمين (مثل: Driver, Passenger, Admin)
+AspNetUserRoles        -- ربط المستخدمين بالأدوار
+AspNetUserClaims       -- دعم تسجيل الدخول والتوثيق
+AspNetUserLogins       -- دعم تسجيل الدخول الخارجي (Google/Facebook)
+AspNetUserTokens       -- دعم التوثيق وحفظ التوكنات
+driver_details         -- تخزين معلومات السائقين (نوع المركبة، لوحة السيارة، صور، حالة السائق، الخط الحالي)
+passenger_details      -- تخزين معلومات الركاب وربطهم بالمستخدمين
+lines                  -- تخزين معلومات الخطوط/المسارات (منطقة الانطلاق، الوجهة، عدد المقاعد، السعر الافتراضي، مدة الرحلة)
+driver_positions       -- ترتيب السائقين في خط معين وإدارة الدور
+passenger_requests     -- تخزين طلبات الركاب (موقع الالتقاط والتوصيل، عدد المقاعد، الحالة)
+queues                 -- تمثيل قوائم الانتظار لكل خط مع عدد المقاعد المطلوبة والمجمعة وحالتها
+queue_items            -- ربط طلبات الركاب بقوائم الانتظار
+trips                  -- تخزين معلومات الرحلات التي يقوم بها السائق (بداية ونهاية الرحلة، حالة الرحلة، إجمالي الأجرة، العمولة)
+trip_passengers        -- ربط الطلبات بالرحلات التي تم تنفيذها وتحديد المقاعد لكل راكب
+transactions           -- تخزين الحركات المالية لكل سائق وراكب (نوع المعاملة، المبلغ، الرصيد بعد العملية)
+driver_wallets         -- رصيد كل سائق في المحفظة مع الأموال المحجوزة
+ratings                -- تقييم السائقين بواسطة الركاب بعد الرحلة، مع التعليقات
+complaints             -- تخزين الشكاوى بين المستخدمين أو للنظام، مع الحالة
+notifications          -- تخزين الإشعارات المرسلة للمستخدمين (سائق، راكب، إداري)
+system_settings        -- تخزين إعدادات النظام العامة مثل معدل العمولة والحد الأدنى للرصيد
+driver_locations       -- تخزين آخر موقع GPS لكل سائق لتتبع موقعه في الوقت الحقيقي
+offers                 -- تخزين العروض والخصومات المتاحة في النظام
+driver_subscriptions   -- إدارة اشتراكات السائقين (اشتراك شهري أو سنوي لتفعيل خدمات معينة)
