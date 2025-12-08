@@ -60,6 +60,10 @@ public partial class Code
     [InverseProperty("Type")]
     public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
 
+    [InverseProperty("TypeCode")]
+    public virtual ICollection<DriverAttachment> DriverAttachments { get; set; } = new List<DriverAttachment>();
+
+
     [InverseProperty("Status")]
     public virtual ICollection<Trip> Trips { get; set; } = new List<Trip>();
 }

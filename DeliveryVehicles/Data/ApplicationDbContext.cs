@@ -23,6 +23,8 @@ public partial class ApplicationDbContext : IdentityDbContext
 
         public virtual DbSet<DriverDetail> DriverDetails { get; set; }
 
+        public virtual DbSet<DriverAttachment> DriverAttachments { get; set; }
+
         public virtual DbSet<DriverLocation> DriverLocations { get; set; }
 
         public virtual DbSet<DriverPosition> DriverPositions { get; set; }
@@ -88,6 +90,21 @@ public partial class ApplicationDbContext : IdentityDbContext
             entity.HasOne(d => d.Trip).WithMany(p => p.Complaints).HasConstraintName("fk_compl_trip");
         });
 
+        modelBuilder.Entity<DriverAttachment>(entity =>
+        {
+            entity.HasKey(e => e.AttachmentId).HasName("PK__driver_a__B74DF4E2CA46FE97");
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+
+            entity.HasOne(d => d.Driver).WithMany(p => p.DriverAttachments)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__driver_at__drive__1C873BEC");
+
+            entity.HasOne(d => d.TypeCode).WithMany(p => p.DriverAttachments)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__driver_at__type___1D7B6025");
+        });
+
         modelBuilder.Entity<DriverDetail>(entity =>
         {
             entity.HasKey(e => e.DriverId).HasName("PK__driver_d__A411C5BDF3116871");
@@ -103,11 +120,10 @@ public partial class ApplicationDbContext : IdentityDbContext
                 .HasConstraintName("fk_driver_status");
 
             entity.HasOne(d => d.User)
-       .WithOne(p => p.DriverDetails)
-       .HasForeignKey<DriverDetail>(d => d.UserId)
-       .OnDelete(DeleteBehavior.ClientSetNull)
-       .HasConstraintName("fk_driver_user");
-
+.WithOne(p => p.DriverDetails)
+.HasForeignKey<DriverDetail>(d => d.UserId)
+.OnDelete(DeleteBehavior.ClientSetNull)
+.HasConstraintName("fk_driver_user");
         });
 
         modelBuilder.Entity<DriverLocation>(entity =>

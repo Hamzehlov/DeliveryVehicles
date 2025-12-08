@@ -1,8 +1,8 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace DeliveryVehicles.Models;
 
@@ -25,14 +25,6 @@ public partial class DriverDetail
     [StringLength(50)]
     public string? PlateNumber { get; set; }
 
-    [Column("photo_url")]
-    [StringLength(300)]
-    public string? PhotoUrl { get; set; }
-
-    [Column("id_image_url")]
-    [StringLength(300)]
-    public string? IdImageUrl { get; set; }
-
     [Column("status_id")]
     public int StatusId { get; set; }
 
@@ -51,6 +43,9 @@ public partial class DriverDetail
     [ForeignKey("CurrentLineId")]
     [InverseProperty("DriverDetails")]
     public virtual Line? CurrentLine { get; set; }
+
+    [InverseProperty("Driver")]
+    public virtual ICollection<DriverAttachment> DriverAttachments { get; set; } = new List<DriverAttachment>();
 
     [InverseProperty("Driver")]
     public virtual ICollection<DriverLocation> DriverLocations { get; set; } = new List<DriverLocation>();
